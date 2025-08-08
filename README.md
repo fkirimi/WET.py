@@ -1,6 +1,7 @@
 💧 WET 3.0 — Weekly Expense Tracker
 =============================================
 "Welcome to WET; because Money is a flow"
+
 A simple, local-first app to track your money weekly, set budgets, and visualize your financial health — built with Python + Streamlit.
 
 ⚙Features
