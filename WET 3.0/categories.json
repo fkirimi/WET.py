@@ -1,1 +1,14 @@
-[]
+[{"Food & Beverages": ["Supermarket", "Market", "Take-out"],
+  "Transport": ["Fuel", "Public Transport", "Cab/taxi", "Parking","transit fee"],
+  "Housing & Rent": ["Rent", "Maintenance", "Cleaning"],
+  "Shopping": ["electronics", "furniture & decor","household items","plants"],
+  "Utilities": ["Electricity", "Water", "Internet", "Airtime"],
+  "Health": ["Hospital", "Medicine", "Insurance"],
+  "Education": ["School fees", "Books", "Tuition"],
+  "Entertainment": ["Netflix", "Outings", "Events"],
+  "Personal Care": ["Salon", "Toiletries", "Apparel"],
+  "Savings & Investment": ["Mshwari", "Sacco", "Chama","MMF"],
+  "Debt Repayment": ["Loan", "Fuliza","loan expenses"],
+  "lent out": ["private loans","interest"],
+  "Gifts & Donations": ["Gifts","Charity", "Family Support"],
+  "Miscellaneous": ["Other", "Transaction charges"]}]
