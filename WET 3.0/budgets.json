@@ -1,1 +1,9 @@
-[]
+{
+  "Transaction Name": ["Opening Balance"],
+  "Date": [],
+  "Amount (Kes)": [0.0],
+  "Note": ["Initial balance"],
+  "Status": ["Confirmed"],
+  "Transaction type": [],
+  "Category": []
+}
