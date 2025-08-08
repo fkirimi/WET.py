@@ -2,28 +2,28 @@
 =============================================
 A simple, local-first app to track your money weekly, set budgets, and visualize your financial health — built with Python + Streamlit.
 
-⚙️ Features
+⚙Features
 =============================================
-✅ Money Tracking
+1- Money Tracking
 -
 
 Record transactions (income & expense)
 
 Includes: date, week, category, subcategory, payment method, fees
 
-📊 Budgets
+2- Budgets
 -
 Set weekly/monthly budgets per category
 
 Progress bars & color-coded comparisons
 
-📈 Dashboard
+3- Dashboard
 -
 Real-time summaries (inflow, outflow, surplus)
 
 Pie charts, bar charts, and net worth health indicator (✅ / ❌)
 
-🗂️ Data Management
+4- Data Management
 -
 Local storage in JSON files
 
@@ -31,7 +31,7 @@ CSV import/export
 
 Opening balance setup
 
-🚀 Quick Start
+Quick Start
 ===========================================
 bash
 Copy
@@ -46,15 +46,15 @@ Your data will be saved inside the WET 3.0/ folder
 Files:
 -
 
-1. transactions.json
+transactions.json
 
-2. budgets.json
+budgets.json
 
-3. categories.json
+categories.json
 
-4. transactions_export.csv
+transactions_export.csv
 
-🧰 Tech Stack
+Tech Stack
 -
 Framework: Streamlit
 
@@ -64,7 +64,7 @@ Libraries: pandas, plotly, json, datetime
 
 Data: Stored locally, no external database needed
 
-📎 Navigation
+Navigation
 =================================================
 Home – Add/view transactions
 
@@ -83,8 +83,8 @@ WET 3.0/
 ├── transactions.json
 ├── transactions_export.csv
 
-🙌 Contribute / Feedback
+Contribute / Feedback
 -
 Feel free to fork, open issues, or submit PRs! 
 Feedback and improvements are welcome.
--
+
