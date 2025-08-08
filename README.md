@@ -83,9 +83,8 @@ WET 3.0/
 ├── transactions.json
 ├── transactions_export.csv
 
-=====================================================
 🙌 Contribute / Feedback
-
+-
 Feel free to fork, open issues, or submit PRs! 
 Feedback and improvements are welcome.
------------------------------------------------------
+-
