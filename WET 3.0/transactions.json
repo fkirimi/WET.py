@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "Transaction Name": "transaction name",
+    "Date": "date",
+    "Amount(Kes)": "amount(kes)",
+    "Category": "category",
+    "Sub Category": "subcategory",
+    "Status": "status",
+    "Transaction Type": "transaction type",
+    "Transaction Fees": "transaction fees",
+    "item description (money in)": "item description (money in)",
+    "item description (money out)": "item description (money out)"
+  }]

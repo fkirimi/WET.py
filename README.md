@@ -72,7 +72,7 @@ Home – Add/view transactions
 
 Budget – Set, edit, and analyze category budgets
 
-Money Pot – Net worth tracking, savings goals, and cashflow charts
+Honey Pot – Net worth tracking, savings goals, and cashflow charts
 
 📁 File Structure
 -
