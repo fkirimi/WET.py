@@ -1,8 +1,22 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectModuleManager">
-    <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/WET.py.iml" filepath="$PROJECT_DIR$/.idea/WET.py.iml" />
-    </modules>
-  </component>
-</project>
+WET_app/
+├── main.py                 # Main application entry point
+├── config.py               # Configuration and constants
+├── utils/
+│   ├── __init__.py
+│   ├── file_handlers.py    # JSON loading/saving functions
+│   ├── data_processors.py  # Data processing functions
+│   └── formatters.py       # Data formatting functions
+├── components/
+│   ├── __init__.py
+│   ├── sidebar.py          # Sidebar components
+│   ├── forms.py            # Form components
+│   ├── charts.py           # Chart components
+│   └── summaries.py        # Summary components
+├── pages/
+│   ├── __init__.py
+│   ├── home.py             # Home page logic
+│   ├── budget.py           # Budget page logic
+│   └── honeypot.py         # Honey Pot page logic
+└── data/
+    ├── categories.json     # Your categories data
+    └── saved_transactions.json # Your transactions data
