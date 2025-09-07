@@ -121,6 +121,7 @@ with st.sidebar:
 
     st.markdown("<div style='margin-bottom: 20px'></div>", unsafe_allow_html=True)
 
+
 def standardize_columns(df):
     # Clean and rename using STANDARD_COLUMNS
     df.columns = [col.strip() for col in df.columns]
@@ -134,91 +135,11 @@ def standardize_columns(df):
             df.drop(columns=["amount (kes)"], inplace=True)
 
     return df
-
 def validate_columns(df, required_cols):
     missing = [col for col in required_cols if col not in df.columns]
     if missing:
         st.warning(f"Missing columns: {', '.join(missing)}")
-
-def get_all_subcategories():
-    """
-    Get all subcategories across all categories
-
-    Returns:
-        list: A flattened list of all subcategories
-    """
-    categories_data = load_subcategories()
-    all_subcategories = []
-    for subcats in categories_data.values():
-        all_subcategories.extend(subcats)
-    return sorted(all_subcategories)
-
-def get_category_for_subcategory(subcategory):
-    """
-    Find which main category a subcategory belongs to
-
-    Args:
-        subcategory (str): The subcategory to find the parent for
-
-    Returns:
-        str: The main category that contains this subcategory
-    """
-    categories_data = load_subcategories()
-    for category, subcats in categories_data.items():
-        if subcategory in subcats:
-            return category
-    return None
-# Load categories from JSON file
-def load_income_categories():
-    try:
-        if os.path.exists(CATEGORY_FILE):
-            with open(CATEGORY_FILE, 'r') as file:
-                categories_data = json.load(file)
-                return categories_data.get("income_categories", [])
-        else:
-            # Return default categories if file doesn't exist
-            return [
-                "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
-                "Reimbursement", "Salary", "Savings", "Scholarship Fund",
-                "Stipend", "Windfall"
-            ]
-    except (json.JSONDecodeError, Exception) as e:
-        st.error(f"Error loading categories: {str(e)}")
-        # Return default categories on error
-        return [
-            "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
-            "Reimbursement", "Salary", "Savings", "Scholarship Fund",
-            "Stipend", "Windfall"
-        ]
-
-def load_expense_categories():
-    if "categories" not in st.session_state:
-        if os.path.exists(CATEGORY_FILE):
-
-            with open(CATEGORY_FILE, "r") as f:
-                st.session_state.categories = json.load(f)
-        else:
-            st.session_state.categories = {
-                "Food & Beverages": ["Supermarket", "Market", "Take-out"],
-                "Transport": ["Fuel", "Public Transport", "Cab/taxi", "Parking", "transit fee"],
-                "Housing & Rent": ["Rent", "Maintenance", "Cleaning"],
-                "Shopping": ["electronics", "furniture & decor", "household items", "plants"],
-                "Utilities": ["Electricity", "Water", "Internet", "Airtime"],
-                "Health": ["Hospital", "Medicine", "Insurance"],
-                "Education": ["School fees", "Books", "Tuition"],
-                "Entertainment": ["Netflix", "Outings", "Events"],
-                "Personal Care": ["Salon", "Toiletries", "Apparel"],
-                "Savings & Investment": ["Mshwari", "Sacco", "Chama", "MMF"],
-                "Debt Repayment": ["Loan", "Fuliza", "loan expenses"],
-                "Lent out": ["private loans", "interest"],
-                "Gifts & Donations": ["Charity", "Family Support"],
-                "Miscellaneous": ["Other", "Transaction charges"]
-            }
-            with open(CATEGORY_FILE, "w") as f:
-                json.dump(st.session_state.categories, f, indent=4)
-
-
-def load_subcategories():
+def load_categories():
     """
     Load subcategories from the categories.json file
 
@@ -228,6 +149,7 @@ def load_subcategories():
     try:
         if os.path.exists(CATEGORY_FILE):
             with open(CATEGORY_FILE, 'r') as file:
+
                 categories_data = json.load(file)
 
                 # Handle different possible structures of the JSON file
@@ -255,7 +177,33 @@ def load_subcategories():
         st.error(f"Error loading categories: {str(e)}")
         return {}
 
+def get_all_subcategories():
+    """
+    Get all subcategories across all categories
 
+    Returns:
+        list: A flattened list of all subcategories
+    """
+    categories_data = load_categories()
+    all_subcategories = []
+    for subcats in categories_data.values():
+        all_subcategories.extend(subcats)
+    return sorted(all_subcategories)
+def get_category_for_subcategory(subcategory):
+    """
+    Find which main category a subcategory belongs to
+
+    Args:
+        subcategory (str): The subcategory to find the parent for
+
+    Returns:
+        str: The main category that contains this subcategory
+    """
+    categories_data = load_categories()
+    for category, subcats in categories_data.items():
+        if subcategory in subcats:
+            return category
+    return None
 # Helper function to get subcategories for a specific category
 def get_subcategories_for_category(category):
     """
@@ -267,28 +215,61 @@ def get_subcategories_for_category(category):
     Returns:
         list: List of subcategories for the specified category
     """
-    categories_data = load_subcategories()
-
-    # Handle case where categories_data is a list instead of a dict
-    if isinstance(categories_data, list):
-        # Try to find the category in the list
-        for item in categories_data:
-            if isinstance(item, dict) and category in item:
-                return item[category]
-        return []
-
-    # Standard case: categories_data is a dictionary
+    categories_data = load_categories()
     return categories_data.get(category, [])
+# Load categories from JSON file
+def load_income_categories():
+    try:
+        if os.path.exists(CATEGORY_FILE):
+            with open(CATEGORY_FILE, 'r') as file:
+                categories_data = json.load(file)
+                return categories_data.get("income_categories", [])
+        else:
+            # Return default categories if file doesn't exist
+            return [
+                "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
+                "Reimbursement", "Salary", "Savings", "Scholarship Fund",
+                "Stipend", "Windfall"
+            ]
+    except (json.JSONDecodeError, Exception) as e:
+        st.error(f"Error loading categories: {str(e)}")
+        # Return default categories on error
+        return [
+            "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
+            "Reimbursement", "Salary", "Savings", "Scholarship Fund",
+            "Stipend", "Windfall"
+        ]
+def load_expense_categories():
+    if "categories" not in st.session_state:
+        if os.path.exists(CATEGORY_FILE):
 
-
-
+            with open(CATEGORY_FILE, "r") as f:
+                st.session_state.categories = json.load(f)
+        else:
+            st.session_state.categories = {
+                "Food & Beverages": ["Supermarket", "Market", "Take-out"],
+                "Transport": ["Fuel", "Public Transport", "Cab/taxi", "Parking", "transit fee"],
+                "Housing & Rent": ["Rent", "Maintenance", "Cleaning"],
+                "Shopping": ["electronics", "furniture & decor", "household items", "plants"],
+                "Utilities": ["Electricity", "Water", "Internet", "Airtime"],
+                "Health": ["Hospital", "Medicine", "Insurance"],
+                "Education": ["School fees", "Books", "Tuition"],
+                "Entertainment": ["Netflix", "Outings", "Events"],
+                "Personal Care": ["Salon", "Toiletries", "Apparel"],
+                "Savings & Investment": ["Mshwari", "Sacco", "Chama", "MMF"],
+                "Debt Repayment": ["Loan", "Fuliza", "loan expenses"],
+                "Lent out": ["private loans", "interest"],
+                "Gifts & Donations": ["Charity", "Family Support"],
+                "Miscellaneous": ["Other", "Transaction charges"]
+            }
+            with open(CATEGORY_FILE, "w") as f:
+                json.dump(st.session_state.categories, f, indent=4)
 def save_transaction(transaction):
     # Initialize 'transactions' as a list if it doesn't exist or is misconfigured
     if 'transactions' not in st.session_state or not isinstance(st.session_state['transactions'], list):
         st.session_state['transactions'] = []
     # Append the new transaction
     st.session_state['transactions'].append(transaction)
-
 def load_json_data(file_path=TRANSACTION_FILE):
     if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
         return []
@@ -303,7 +284,6 @@ def load_json_data(file_path=TRANSACTION_FILE):
     except (json.JSONDecodeError, Exception) as e:
         st.error(f"Error loading {file_path}: {str(e)}")
         return []
-
 def save_json_data(file_path, data):
     """
     Save data to a JSON file
@@ -313,7 +293,6 @@ def save_json_data(file_path, data):
             json.dump(data, file, indent=4)
     except Exception as e:
         st.error(f"Error saving data to {file_path}: {str(e)}")
-
 def load_budgets_from_file():
     if os.path.exists(BUDGET_FILE):
         with open(BUDGET_FILE, "r") as f:
@@ -325,7 +304,6 @@ def load_budgets_from_file():
                 st.session_state.budgets = {}  # fallback if file is corrupted or list
     else:
         st.session_state.budgets = {}
-
 def create_budget():
 
     with st.form(key=f"add_budget_form_{period_key}"):
@@ -342,11 +320,9 @@ def create_budget():
             }
             period_data['items'].append(new_item)
             st.success("Budget item added!")
-
 def save_budgets():
     with open(BUDGET_FILE, "w") as f:
         json.dump(st.session_state.budgets, f, indent=4)
-
 def deduplicate_columns(columns):
     seen = {}
     new_cols = []
@@ -358,7 +334,6 @@ def deduplicate_columns(columns):
             seen[col] += 1
             new_cols.append(f"{col}.{seen[col]}")
     return new_cols
-
 def classify_transaction_type(row):
     money_in = row.get('item description (money in)', None)
     money_out = row.get('item description (money out)', None)
@@ -372,7 +347,6 @@ def classify_transaction_type(row):
 
 # Load transactions from file
 transactions = load_json_data(TRANSACTION_FILE)
-
 
 def export_transactions_to_csv():
     # Load transactions from file
@@ -440,7 +414,7 @@ if st.session_state.page == "Home":
     st.markdown("---")
 
     # Load all categories and subcategories
-    all_categories = load_subcategories()
+    all_categories = load_categories()
 
     # Get main categories for the dropdown
     if isinstance(all_categories, dict):
@@ -476,49 +450,59 @@ if st.session_state.page == "Home":
         else:
             # Category selection with subcategories
             main_category = st.selectbox("Main Category", main_categories)
-
             select_main_category = st.form_submit_button("Select category")
             if select_main_category:
                 # Get subcategories for the selected main category
+                # Get subcategories for the selected main category
                 subcategories = get_subcategories_for_category(main_category)
-                subcategory = st.selectbox("Sub Category", subcategories) if subcategories else st.text_input(
-                    "Sub Category", "")
 
-            item_description = st.text_input("Item Description", "")
+                # Subcategory selection - this is what was missing
+                if subcategories:
+                    # Get subcategories for the selected main category
+                    subcategories = get_subcategories_for_category(main_category)
+
+                    subcategory = st.selectbox("Sub Category", subcategories)
+
+            item_description = st.text_input("Item Description (money out)", "")
 
         submitted = st.form_submit_button("Save Transaction")
+        # Process form submission INSIDE the form block
+        if submitted:
 
-    if submitted:
-        # Calculate week number from date (ISO week)
-        week = date.isocalendar()[1]
+            try:
+                # Defensive check: ensure subcategory is defined
+                if not subcategory:
+                    st.error("Please select a subcategory.")
+                else:
+                    week = date.isocalendar()[1]
+                    transactions = load_json_data(TRANSACTION_FILE)
 
-        # Load transactions
-        transactions = load_json_data(TRANSACTION_FILE)
+                    # Ensure transactions is a list
+                    if not isinstance(transactions, list):
+                        transactions = []
 
-        # Create transaction dictionary with standardized column names
-        transaction = {
-            "date": date.strftime("%Y-%m-%d"),
-            "week": week,
-            "amount(kes)": amount,
-            "transaction fees": transaction_fees,
-            "transaction type": "debit" if transaction_type == "Money in (debit)" else "credit",
-            "category": category,
-            "subcategory": subcategory,
-            "payment method": payment_method
-        }
+                    transaction = {
+                        "date": date.strftime("%Y-%m-%d"),
+                        "week": week,
+                        "amount(kes)": amount,
+                        "transaction fees": transaction_fees,
+                        "transaction type": "debit" if transaction_type == "Money in (debit)" else "credit",
+                        "category": main_category,
+                        "subcategory": subcategory,
+                        "payment method": payment_method,
+                        "item description (money in)": item_description if transaction_type == "Money in (debit)" else "",
+                        "item description (money out)": item_description if transaction_type == "Money out (credit)" else ""
+                    }
 
-        # Add appropriate description field based on transaction type
-        if transaction_type == "Money in (debit)":
-            transaction["item description (money in)"] = item_description
-            transaction["item description (money out)"] = ""
-        else:
-            transaction["item description (money in)"] = ""
-            transaction["item description (money out)"] = item_description
+                    transactions.append(transaction)
+                    save_json_data(TRANSACTION_FILE, transactions)
+                    st.success("Transaction saved successfully!")
 
-        # Add to transactions list
-        transactions.append(transaction)
-        save_json_data(TRANSACTION_FILE, transactions)
-        st.success("Transaction saved successfully!")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+
+
+
 
 
     st.sidebar.subheader("Export saved transactions")
