@@ -27,7 +27,8 @@ STANDARD_COLUMNS = {
     "Transaction Type": "transaction type",
     "Transaction Fees": "transaction fees",
     "item description (money in)": "item description (money in)",
-    "item description (money out)": "item description (money out)"
+    "item description (money out)": "item description (money out)",
+    "Payment Method": "payment method"
 }
 # Define the expected export column order
 EXPORT_COLUMNS = [
@@ -239,7 +240,12 @@ def classify_transaction_type(row):
 
 # Load transactions from file
 transactions = load_json_data(TRANSACTION_FILE)
+
+
 def export_transactions_to_csv():
+    # Load transactions from file
+    transactions = load_json_data(TRANSACTION_FILE)
+
     # Warn if none found
     if not transactions:
         st.warning("No transactions found to export.")
@@ -249,26 +255,36 @@ def export_transactions_to_csv():
     df = pd.DataFrame(transactions)
     df = standardize_columns(df)
 
-    # Define the required standard column order
-    desired_order = [
-        'date', 'week', 'amount(kes)', 'transaction fees', 'transaction type',
-        'category', 'subcategory', 'payment method',
-        'item description (money in)', 'item description (money out)'
-    ]
+    # Use the predefined EXPORT_COLUMNS instead of redefining
+    desired_order = EXPORT_COLUMNS
 
     # Ensure all columns from desired_order exist
     for col in desired_order:
         if col not in df.columns:
-            if "description" in col:
+            if "description" in col or col == "payment method":
                 df[col] = ""
-            elif "date" in col:
+            elif col == "date":
                 df[col] = pd.NaT
+            elif col == "week":
+                # Will be calculated from date below
+                continue
             else:
                 df[col] = 0.0
 
-    # Format the 'date' column
+    # Calculate week from date if date exists
     if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        # Convert to datetime first
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        # Calculate week number (ISO week)
+        df["week"] = df["date"].dt.isocalendar().week
+        # Format the date column as string
+        df["date"] = df["date"].dt.strftime("%Y-%m-%d")
+    else:
+        # If no date column, create empty week column
+        df["week"] = ""
+
+    # Handle case where week calculation failed for some rows
+    df["week"] = df["week"].fillna("").astype(str)
 
     # Reorder columns safely
     df = df[desired_order]
