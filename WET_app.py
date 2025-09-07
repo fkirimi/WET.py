@@ -437,41 +437,42 @@ if st.session_state.page == "Home":
             st.session_state.edit_index = None
 
         transaction_type = st.selectbox("Transaction type", ["Money in (debit)", "Money out (credit)"])
-        select = st.form_submit_button("select")
+        select_transaction_type = st.form_submit_button("Select")
         date = st.date_input("Transaction Date", value=datetime.today())
         amount = st.number_input("Amount(Kes)", min_value=0.0, format="%.2f")
         transaction_fees = st.number_input("Transaction Fees", min_value=0.0, format="%.2f", value=0.0)
         payment_method = st.selectbox("Payment Method", payment_methods)
 
+        # Initialize category variables
+        category_value = ""
+        subcategory_value = ""
+
         if transaction_type == "Money in (debit)":
-            category = st.selectbox("Category", income_categories)
-            subcategory = st.text_input("Sub Category", "None")
+            category_value = st.selectbox("Category", income_categories)
+            subcategory_value = st.text_input("Sub Category", "None")
             item_description = st.text_input("Item Description (Money In)", "")
         else:
-            # Category selection with subcategories
-            main_category = st.selectbox("Main Category", main_categories)
-            select_main_category = st.form_submit_button("Select category")
-            if select_main_category:
-                # Get subcategories for the selected main category
-                # Get subcategories for the selected main category
-                subcategories = get_subcategories_for_category(main_category)
+            # For expenses, use the main categories and subcategories
+            category_value = st.selectbox("Main Category", main_categories)
+            select_category = st.form_submit_button("Select Category")
 
-                # Subcategory selection - this is what was missing
-                if subcategories:
-                    # Get subcategories for the selected main category
-                    subcategories = get_subcategories_for_category(main_category)
+            # Get subcategories for the selected main category
+            subcategories = get_subcategories_for_category(category_value)
 
-                    subcategory = st.selectbox("Sub Category", subcategories)
+            if subcategories:
+                subcategory_value = st.selectbox("Sub Category", subcategories)
+            else:
+                subcategory_value = st.text_input("Sub Category", "")
 
             item_description = st.text_input("Item Description (money out)", "")
 
         submitted = st.form_submit_button("Save Transaction")
-        # Process form submission INSIDE the form block
-        if submitted:
 
+        # Process form submission
+        if submitted:
             try:
                 # Defensive check: ensure subcategory is defined
-                if not subcategory:
+                if not subcategory_value:
                     st.error("Please select a subcategory.")
                 else:
                     week = date.isocalendar()[1]
@@ -487,8 +488,8 @@ if st.session_state.page == "Home":
                         "amount(kes)": amount,
                         "transaction fees": transaction_fees,
                         "transaction type": "debit" if transaction_type == "Money in (debit)" else "credit",
-                        "category": main_category,
-                        "subcategory": subcategory,
+                        "category": category_value,
+                        "subcategory": subcategory_value,
                         "payment method": payment_method,
                         "item description (money in)": item_description if transaction_type == "Money in (debit)" else "",
                         "item description (money out)": item_description if transaction_type == "Money out (credit)" else ""
