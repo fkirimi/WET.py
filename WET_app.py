@@ -140,9 +140,61 @@ def validate_columns(df, required_cols):
     if missing:
         st.warning(f"Missing columns: {', '.join(missing)}")
 
-def load_categories():
+def get_all_subcategories():
+    """
+    Get all subcategories across all categories
+
+    Returns:
+        list: A flattened list of all subcategories
+    """
+    categories_data = load_subcategories()
+    all_subcategories = []
+    for subcats in categories_data.values():
+        all_subcategories.extend(subcats)
+    return sorted(all_subcategories)
+
+def get_category_for_subcategory(subcategory):
+    """
+    Find which main category a subcategory belongs to
+
+    Args:
+        subcategory (str): The subcategory to find the parent for
+
+    Returns:
+        str: The main category that contains this subcategory
+    """
+    categories_data = load_subcategories()
+    for category, subcats in categories_data.items():
+        if subcategory in subcats:
+            return category
+    return None
+# Load categories from JSON file
+def load_income_categories():
+    try:
+        if os.path.exists(CATEGORY_FILE):
+            with open(CATEGORY_FILE, 'r') as file:
+                categories_data = json.load(file)
+                return categories_data.get("income_categories", [])
+        else:
+            # Return default categories if file doesn't exist
+            return [
+                "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
+                "Reimbursement", "Salary", "Savings", "Scholarship Fund",
+                "Stipend", "Windfall"
+            ]
+    except (json.JSONDecodeError, Exception) as e:
+        st.error(f"Error loading categories: {str(e)}")
+        # Return default categories on error
+        return [
+            "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
+            "Reimbursement", "Salary", "Savings", "Scholarship Fund",
+            "Stipend", "Windfall"
+        ]
+
+def load_expense_categories():
     if "categories" not in st.session_state:
         if os.path.exists(CATEGORY_FILE):
+
             with open(CATEGORY_FILE, "r") as f:
                 st.session_state.categories = json.load(f)
         else:
@@ -165,6 +217,71 @@ def load_categories():
             with open(CATEGORY_FILE, "w") as f:
                 json.dump(st.session_state.categories, f, indent=4)
 
+
+def load_subcategories():
+    """
+    Load subcategories from the categories.json file
+
+    Returns:
+        dict: A dictionary where keys are main categories and values are lists of subcategories
+    """
+    try:
+        if os.path.exists(CATEGORY_FILE):
+            with open(CATEGORY_FILE, 'r') as file:
+                categories_data = json.load(file)
+
+                # Handle different possible structures of the JSON file
+                if isinstance(categories_data, dict):
+                    # Standard case: dictionary with categories as keys
+                    return categories_data
+                elif isinstance(categories_data, list):
+                    # If it's a list, convert to the expected dictionary format
+                    st.warning("Categories file format is a list, converting to dictionary format.")
+                    converted_dict = {}
+                    for item in categories_data:
+                        if isinstance(item, dict):
+                            converted_dict.update(item)
+                        else:
+                            # Handle other list item types if needed
+                            pass
+                    return converted_dict
+                else:
+                    st.error("Unexpected format in categories file.")
+                    return {}
+        else:
+            st.error("Categories file not found.")
+            return {}
+    except (json.JSONDecodeError, Exception) as e:
+        st.error(f"Error loading categories: {str(e)}")
+        return {}
+
+
+# Helper function to get subcategories for a specific category
+def get_subcategories_for_category(category):
+    """
+    Get subcategories for a specific category
+
+    Args:
+        category (str): The main category to get subcategories for
+
+    Returns:
+        list: List of subcategories for the specified category
+    """
+    categories_data = load_subcategories()
+
+    # Handle case where categories_data is a list instead of a dict
+    if isinstance(categories_data, list):
+        # Try to find the category in the list
+        for item in categories_data:
+            if isinstance(item, dict) and category in item:
+                return item[category]
+        return []
+
+    # Standard case: categories_data is a dictionary
+    return categories_data.get(category, [])
+
+
+
 def save_transaction(transaction):
     # Initialize 'transactions' as a list if it doesn't exist or is misconfigured
     if 'transactions' not in st.session_state or not isinstance(st.session_state['transactions'], list):
@@ -177,10 +294,25 @@ def load_json_data(file_path=TRANSACTION_FILE):
         return []
     try:
         with open(file_path, 'r') as file:
-            return json.load(file)
+            data = json.load(file)
+            # Handle case where data is a dictionary instead of a list
+            if isinstance(data, dict):
+                # Convert dictionary values to a list
+                return list(data.values())
+            return data
     except (json.JSONDecodeError, Exception) as e:
         st.error(f"Error loading {file_path}: {str(e)}")
         return []
+
+def save_json_data(file_path, data):
+    """
+    Save data to a JSON file
+    """
+    try:
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+    except Exception as e:
+        st.error(f"Error saving data to {file_path}: {str(e)}")
 
 def load_budgets_from_file():
     if os.path.exists(BUDGET_FILE):
@@ -300,67 +432,99 @@ def export_transactions_to_csv():
         mime="text/csv"
     )
 
+
 # Main page logic
 if st.session_state.page == "Home":
     st.title("Transaction Log")
     st.write("Record your week's expenditure and income.")
     st.markdown("---")
 
-    income_categories = sorted([
-        "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
-        "Reimbursement", "Salary", "Savings", "Scholarship Fund",
-        "Stipend", "Windfall"
-    ])
+    # Load all categories and subcategories
+    all_categories = load_subcategories()
+
+    # Get main categories for the dropdown
+    if isinstance(all_categories, dict):
+        main_categories = sorted(list(all_categories.keys()))
+    else:
+        # If all_categories is a list, extract keys from the dictionaries in the list
+        main_categories = []
+        for item in all_categories:
+            if isinstance(item, dict):
+                main_categories.extend(item.keys())
+        main_categories = sorted(list(set(main_categories)))  # Remove duplicates
+
+    # Load income categories from file
+    income_categories = sorted(load_income_categories())
+
+    payment_methods = ["Cash", "M-Pesa", "Bank Transfer", "Credit Card", "Debit Card", "Other"]
 
     with st.form(key="expense_form"):
-
         if "edit_index" not in st.session_state:
             st.session_state.edit_index = None
+
         transaction_type = st.selectbox("Transaction type", ["Money in (debit)", "Money out (credit)"])
         select = st.form_submit_button("select")
         date = st.date_input("Transaction Date", value=datetime.today())
-        week = st.number_input("Week Number", min_value=0, max_value=53)
         amount = st.number_input("Amount(Kes)", min_value=0.0, format="%.2f")
+        transaction_fees = st.number_input("Transaction Fees", min_value=0.0, format="%.2f", value=0.0)
+        payment_method = st.selectbox("Payment Method", payment_methods)
 
-        # 2. INITIALIZE SUBCATEGORY HERE
-        if transaction_type == 'Money in (debit)':
-            income_categories = sorted(
-                ["Bonus", "Debtors", "Dividends", "Honorarium", "Loan", "Reimbursement", "Salary", "Savings",
-                 "Scholarship Fund", "Stipend", "Windfall"])
-            category = st.selectbox("Category", options=income_categories)
-            subcategory = "Not applicable"  # ✅ Define subcategory here
-            # Optional: show it as disabled in the UI
-            st.selectbox("Sub-Category (N/A)", options=["Not applicable"], disabled=True, key="disabled_subcat")
-            item_description = st.text_input("Some description of the item")
-        else:  # Money out (credit)
-            category = st.selectbox("Category", options=list(st.session_state.categories.keys()))
-            subcategory = st.text_input("Enter the Sub-Category")
-            transaction_fees = st.number_input("Transaction fees(KES)", min_value=0.0, format="%.2f")
-            payment_method = st.selectbox("💳 Payment Method", ['Cash', 'M-PESA', 'Bank Transfer', 'Card', 'Other'])
-            item_description = st.text_input("Some description of the item")
+        if transaction_type == "Money in (debit)":
+            category = st.selectbox("Category", income_categories)
+            subcategory = st.text_input("Sub Category", "None")
+            item_description = st.text_input("Item Description (Money In)", "")
+        else:
+            # Category selection with subcategories
+            main_category = st.selectbox("Main Category", main_categories)
 
-        submit = st.form_submit_button("submit")
-        if submit:
-            # 7. BUILD TRANSACTION FOR BOTH TYPES
-            transaction = {
-                "Date": str(date),
-                "Week": week,
-                "Amount(kes)": amount,
-                "Transaction type": transaction_type,
-                "Category": category,
-                "Subcategory": subcategory,
-                "Payment Method": payment_method if transaction_type.startswith("Money out") else "N/A",
-                "Transaction fees": transaction_fees if transaction_type.startswith("Money out") else 0.0,
-                "item description": item_description
-            }
+            select_main_category = st.form_submit_button("Select category")
+            if select_main_category:
+                # Get subcategories for the selected main category
+                subcategories = get_subcategories_for_category(main_category)
+                subcategory = st.selectbox("Sub Category", subcategories) if subcategories else st.text_input(
+                    "Sub Category", "")
 
-            save_transaction(transaction)
-            st.success("Transaction saved!")
+            item_description = st.text_input("Item Description", "")
+
+        submitted = st.form_submit_button("Save Transaction")
+
+    if submitted:
+        # Calculate week number from date (ISO week)
+        week = date.isocalendar()[1]
+
+        # Load transactions
+        transactions = load_json_data(TRANSACTION_FILE)
+
+        # Create transaction dictionary with standardized column names
+        transaction = {
+            "date": date.strftime("%Y-%m-%d"),
+            "week": week,
+            "amount(kes)": amount,
+            "transaction fees": transaction_fees,
+            "transaction type": "debit" if transaction_type == "Money in (debit)" else "credit",
+            "category": category,
+            "subcategory": subcategory,
+            "payment method": payment_method
+        }
+
+        # Add appropriate description field based on transaction type
+        if transaction_type == "Money in (debit)":
+            transaction["item description (money in)"] = item_description
+            transaction["item description (money out)"] = ""
+        else:
+            transaction["item description (money in)"] = ""
+            transaction["item description (money out)"] = item_description
+
+        # Add to transactions list
+        transactions.append(transaction)
+        save_json_data(TRANSACTION_FILE, transactions)
+        st.success("Transaction saved successfully!")
+
+
     st.sidebar.subheader("Export saved transactions")
+
     if st.sidebar.button("Export to CSV"):
         export_transactions_to_csv()
-    else:
-        st.sidebar.warning("Column mismatch.")
 
     # 8. MOVE SUMMARY TO SIDEBAR (OUTSIDE FORM)
     st.sidebar.markdown("---")
@@ -369,99 +533,86 @@ if st.session_state.page == "Home":
     transactions = load_json_data(TRANSACTION_FILE)
 
     if transactions:
-
         # Load transactions into DataFrame
         df = pd.DataFrame(transactions)
 
-        # Normalize column names
+        # Standardize column names once
         df = standardize_columns(df)
-        df.columns = [col.strip().lower() for col in df.columns]
 
-        # Now manually rename the duplicate columns
-        print("Final column names:", df.columns.tolist())
-        expected_cols = ['amount(kes)', 'item description (money in)', 'item description']
-        available_cols = [col for col in expected_cols if col in df.columns]
+        # Ensure amount is numeric
+        if 'amount(kes)' in df.columns:
+            df['amount(kes)'] = pd.to_numeric(df['amount(kes)'], errors='coerce')
 
-        print(df[available_cols].head(10))
-        # Print the actual column names to verify
-        print("Columns after auto-renaming:", df.columns)
-        print("DataFrame preview:")
-        print(type(df["amount(kes)"]))
-        print(df["amount(kes)"])
-
-        if 'transaction type' in df.columns and 'amount(kes)' in df.columns:
-            money_summary = df.groupby('transaction type')['amount(kes)'].sum().reset_index()
-            print(money_summary)
-
-        else:
-            print("Required column(s) missing:", df.columns)
-
-
-        # Normalize relevant columns
-        df["transaction type"] = df["transaction type"].str.strip().str.lower()
-        df["category"] = df["category"].str.strip().str.lower()
-
-           # Filter out invalid rows
+        # Filter out invalid rows
         df = df.dropna(subset=["amount(kes)"])
 
-        # Proceed if column exists
-        if "amount(kes)" in df.columns:
-            total_inflow = df[df["transaction type"] == "money in (debit)"]["amount(kes)"].sum()
-            total_outflow = df[df["transaction type"] == "money out (credit)"]["amount(kes)"].sum()
+        # Normalize relevant columns for consistent filtering
+        if 'transaction type' in df.columns:
+            df["transaction type"] = df["transaction type"].str.strip().str.lower()
+        if 'category' in df.columns:
+            df["category"] = df["category"].str.strip().str.lower()
+
+        # Calculate summary statistics
+        if 'transaction type' in df.columns and 'amount(kes)' in df.columns:
+            # Use consistent case for filtering
+            total_inflow = df[df["transaction type"].str.contains("debit|money in", case=False, na=False)][
+                "amount(kes)"].sum()
+            total_outflow = df[df["transaction type"].str.contains("credit|money out", case=False, na=False)][
+                "amount(kes)"].sum()
+
+            # Look for savings in both income and expense categories
             total_saved = df[
-                (df["transaction type"] == "money out (credit)") &
-                (df["category"] == "savings & investment")
+                (df["category"].str.contains("savings", case=False, na=False)) |
+                (df["subcategory"].str.contains("savings", case=False, na=False))
                 ]["amount(kes)"].sum()
 
             surplus = total_inflow - total_outflow
 
-            st.sidebar.markdown(f"Total Inflow(Kes): {total_inflow:,.2f}")
-            st.sidebar.markdown(f"Total Outflow(Kes): {total_outflow:,.2f}")
-            st.sidebar.markdown(f"Surplus(Kes): {surplus:,.2f}")
+            st.sidebar.markdown(f"**Total Inflow (Kes):** {total_inflow:,.2f}")
+            st.sidebar.markdown(f"**Total Outflow (Kes):** {total_outflow:,.2f}")
+            st.sidebar.markdown(f"**Surplus (Kes):** {surplus:,.2f}")
+            st.sidebar.markdown(f"**Total Saved (Kes):** {total_saved:,.2f}")
 
             st.sidebar.markdown("---")
 
             # Expense breakdown
+            expense_data = df[df["transaction type"].str.contains("credit|money out", case=False, na=False)]
 
-            expense_data = df[df["transaction type"] == "Money out (credit)"]
-
-            if not expense_data.empty:
-                category_totals = expense_data.groupby("category")["amount(kes)"].sum().reset_index()
-
+            if not expense_data.empty and 'category' in expense_data.columns:
+                # Create expense pie chart
                 fig_expense_pie = px.pie(
-                    df,
-                    names='category',  # labels in the pie chart
-                    values='amount(kes)',  # numeric values to aggregate
+                    expense_data,
+                    names='category',
+                    values='amount(kes)',
                     title='Expense Distribution by Category'
                 )
-
-                #fig_expense_pie.show()
                 st.sidebar.plotly_chart(fig_expense_pie, use_container_width=True)
             else:
                 st.sidebar.info("No expenses recorded yet for category breakdown.")
 
             # Income breakdown
-            income_data = df[df["transaction type"] == "Money in (debit)"]
-            if not income_data.empty:
-                category_totals = income_data.groupby("category")["amount(kes)"].sum().reset_index()
+            income_data = df[df["transaction type"].str.contains("debit|money in", case=False, na=False)]
+
+            if not income_data.empty and 'category' in income_data.columns:
+                # Create income pie chart
                 fig_income_pie = px.pie(
-                    category_totals,
-                    names="category",
-                    values="amount(kes)",
-                    title="Income by Category",
+                    income_data,
+                    names='category',
+                    values='amount(kes)',
+                    title='Income by Category',
                     color_discrete_sequence=px.colors.sequential.Teal
                 )
                 st.sidebar.plotly_chart(fig_income_pie, use_container_width=True)
             else:
                 st.sidebar.info("No income recorded yet for category breakdown.")
         else:
-            st.sidebar.warning("`amount(kes)` column not found in data")
+            st.sidebar.warning("Required columns not found in data")
     else:
         st.sidebar.warning("No transactions found")
 
 elif st.session_state.page == "Budget":
     st.title("Budget Management")
-    load_categories()
+    load_expense_categories()
     load_budgets_from_file()
     current_year = datetime.now().year
     months = ["January", "February", "March", "April", "May", "June",
@@ -627,16 +778,18 @@ elif st.session_state.page == "Honey Pot":
     st.title("Honey Pot")
     st.write("Financial dashboard for tracking net worth and cashflow")
 
-    # 1. Load data with consistent column names
-    if os.path.exists(TRANSACTION_FILE):
-        df = pd.read_json(TRANSACTION_FILE)
-        # Standardize column names first
+    # 1. Load data with consistent column names using your custom function
+    transactions = load_json_data(TRANSACTION_FILE)
+
+    if transactions:
+        df = pd.DataFrame(transactions)
+        # Standardize column names
         df = standardize_columns(df)
     else:
         df = pd.DataFrame(columns=[
-            "Date", "Week", "Amount (Kes)", "Transaction Type",  # Changed to match standardization
-            "Category", "Subcategory", "Transaction Fees",
-            "Payment Method", "Item Description"
+            "date", "week", "amount(kes)", "transaction type",
+            "category", "subcategory", "transaction fees",
+            "payment method", "item description (money in)", "item description (money out)"
         ])
 
     # 2. Set opening balance - ensure consistent naming
@@ -646,57 +799,59 @@ elif st.session_state.page == "Honey Pot":
                                           key="opening_bal")
 
     if st.sidebar.button("Save Opening Balance"):
-        new_row = {
-            "Date": datetime.now().strftime("%Y-%m-%d"),
-            "Week": datetime.now().isocalendar()[1],
-            "Amount (Kes)": opening_bal,
-            "Transaction Type": "Opening Balance",  # Consistent naming
-            "Category": "Adjustment",
-            "Subcategory": "Opening Balance",
-            "Transaction Fees": 0.0,
-            "Payment Method": "N/A",
-            "Item Description": "Initial balance"
-        }
-        # Append new row correctly
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        df.to_json(TRANSACTION_JSON)
+        # Store opening balance in session state instead of adding as a transaction
+        st.session_state.opening_balance = opening_bal
         st.sidebar.success("Opening balance saved!")
+
+    # Get opening balance from session state or use 0 as default
+    opening_balance = st.session_state.get('opening_balance', 0.0)
 
     # 3. Ensure standardization after any modifications
     df = standardize_columns(df)
 
     # 4. Add missing columns if they don't exist
     required_columns = [
-        "Date", "Week", "Amount (Kes)", "Transaction Type",
-        "Category", "Subcategory", "Transaction Fees",
-        "Payment Method", "Item Description"
+        "date", "week", "amount(kes)", "transaction type",
+        "category", "subcategory", "transaction fees",
+        "payment method", "item description (money in)", "item description (money out)"
     ]
     for col in required_columns:
         if col not in df.columns:
-            df[col] = None if col == "Item Description" else 0.0
+            if "description" in col:
+                df[col] = ""
+            elif col == "date":
+                df[col] = pd.NaT
+            else:
+                df[col] = 0.0
 
     # 5. Safe calculation of metrics
     try:
-        # Create filtered dataframes safely
-        expense_df = df[df["Transaction Type"] == "Money out (credit)"].copy()
-        income_df = df[df["Transaction Type"] == "Money in (debit)"].copy()
+        # Normalize transaction type for consistent filtering
+        if 'transaction type' in df.columns:
+            df["transaction type"] = df["transaction type"].str.strip().str.lower()
+
+        # Create filtered dataframes safely with case-insensitive matching
+        expense_df = df[df["transaction type"].str.contains("credit|money out", case=False, na=False)].copy()
+        income_df = df[df["transaction type"].str.contains("debit|money in", case=False, na=False)].copy()
+
+        # Convert amounts to numeric
+        if 'amount(kes)' in df.columns:
+            df['amount(kes)'] = pd.to_numeric(df['amount(kes)'], errors='coerce')
+        if 'transaction fees' in df.columns:
+            df['transaction fees'] = pd.to_numeric(df['transaction fees'], errors='coerce')
 
         # Calculate metrics with NaN handling
-        total_inflow = income_df["Amount (Kes)"].sum() if not income_df.empty else 0.0
-        total_outflow = (
-                expense_df["Amount (Kes)"].sum() +
-                expense_df["Transaction Fees"].sum()
-        ) if not expense_df.empty else 0.0
+        total_inflow = income_df["amount(kes)"].sum() if not income_df.empty else 0.0
+        total_outflow = expense_df["amount(kes)"].sum() if not expense_df.empty else 0.0
 
-        transaction_costs = df["Transaction Fees"].sum()
+        transaction_costs = df["transaction fees"].sum() if 'transaction fees' in df.columns else 0.0
 
         total_saved = expense_df[
-            (expense_df["Category"] == "Savings & Investment")
-        ]["Amount (Kes)"].sum() if not expense_df.empty else 0.0
+            (expense_df["category"].str.contains("savings", case=False, na=False)) |
+            (expense_df["subcategory"].str.contains("savings", case=False, na=False))
+            ]["amount(kes)"].sum() if not expense_df.empty else 0.0
 
-        net_worth = (
-                (opening_bal + total_inflow + total_saved) -
-                (total_outflow + transaction_costs))
+        net_worth = opening_balance + total_inflow - total_outflow - transaction_costs
 
         # 6. Display metrics safely
         st.subheader("Financial Summary")
@@ -705,7 +860,7 @@ elif st.session_state.page == "Honey Pot":
         col1.metric("Total Inflow", f"KSh {total_inflow:,.2f}")
         col2.metric("Total Outflow", f"KSh {total_outflow:,.2f}")
         col3.metric("Net Worth", f"KSh {net_worth:,.2f}",
-                    delta=f"KSh {net_worth - opening_bal:,.2f} from opening")
+                    delta=f"KSh {net_worth - opening_balance:,.2f} from opening")
 
         # Additional metrics
         st.metric("Total Saved", f"KSh {total_saved:,.2f}")
@@ -715,57 +870,67 @@ elif st.session_state.page == "Honey Pot":
         st.error(f"Missing column in data: {e}")
         st.write("Current columns:", df.columns.tolist())
         # Set default values to prevent further errors
-        total_inflow, total_outflow, transaction_costs, total_saved, net_worth = 0.0, 0.0, 0.0, 0.0, opening_bal
+        total_inflow, total_outflow, transaction_costs, total_saved, net_worth = 0.0, 0.0, 0.0, 0.0, opening_balance
 
     # 7. Cashflow chart with safe column handling
     st.subheader("Monthly Cashflow Overview")
-    if not df.empty and 'Date' in df.columns:
+    if not df.empty and 'date' in df.columns:
         try:
             # Create a copy to avoid SettingWithCopyWarning
             chart_df = df.copy()
 
             # Convert and extract date parts
-            chart_df['Date'] = pd.to_datetime(chart_df['Date'], errors='coerce')
-            chart_df = chart_df.dropna(subset=['Date'])
-            chart_df['Month'] = chart_df['Date'].dt.strftime('%b')
+            chart_df['date'] = pd.to_datetime(chart_df['date'], errors='coerce')
+            chart_df = chart_df.dropna(subset=['date'])
+            chart_df['Month'] = chart_df['date'].dt.strftime('%Y-%m')
 
-            # Define month order
-            month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            chart_df['Month'] = pd.Categorical(chart_df['Month'], categories=month_order, ordered=True)
+            # Group by month and transaction type
+            monthly_data = chart_df.groupby(['Month', 'transaction type'])['amount(kes)'].sum().reset_index()
 
-            # Pivot table with safe aggregation
-            cashflow_data = chart_df.pivot_table(
+            # Pivot the data
+            cashflow_data = monthly_data.pivot(
                 index='Month',
-                columns='Transaction Type',
-                values='Amount (Kes)',
-                aggfunc='sum',
-                fill_value=0
-            ).reset_index()
+                columns='transaction type',
+                values='amount(kes)'
+            ).reset_index().fillna(0)
 
             # Ensure required columns exist
-            for col_type in ['Money in (debit)', 'Money out (credit)']:
+            for col_type in ['debit', 'credit']:
                 if col_type not in cashflow_data.columns:
                     cashflow_data[col_type] = 0
 
             # Rename columns
             cashflow_data.rename(columns={
-                'Money in (debit)': 'Income',
-                'Money out (credit)': 'Expense'
+                'debit': 'Income',
+                'credit': 'Expense'
             }, inplace=True)
-
-            # Add missing months
-            all_months = pd.DataFrame({'Month': month_order})
-            cashflow_data = all_months.merge(cashflow_data, on='Month', how='left').fillna(0)
 
             # Calculate net cashflow
             cashflow_data['Net'] = cashflow_data['Income'] - cashflow_data['Expense']
 
-            # Create chart (same as before)
-            # ... [your existing chart code] ...
+            # Sort by month
+            cashflow_data = cashflow_data.sort_values('Month')
+
+            # Create chart
+            fig = px.bar(
+                cashflow_data,
+                x='Month',
+                y=['Income', 'Expense'],
+                title='Monthly Income vs Expenses',
+                barmode='group'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Add net cashflow line
+            fig.add_trace(px.line(cashflow_data, x='Month', y='Net',
+                                  color_discrete_sequence=['black']).data[0])
+            fig.update_layout(showlegend=True)
 
         except Exception as e:
             st.error(f"Error processing cashflow data: {e}")
+            import traceback
+
+            st.write(traceback.format_exc())
     else:
         st.warning("No transaction data available for chart")
 
@@ -775,17 +940,24 @@ elif st.session_state.page == "Honey Pot":
         try:
             # Create safe copy and format
             recent_df = df.copy()
-            recent_df['Date'] = pd.to_datetime(recent_df['Date']).dt.strftime('%b %d, %Y')
-            recent_df = recent_df.sort_values('Date', ascending=False).head(10)
+            recent_df['date'] = pd.to_datetime(recent_df['date'], errors='coerce').dt.strftime('%b %d, %Y')
+            recent_df = recent_df.sort_values('date', ascending=False).head(10)
 
             # Display with essential columns only
-            display_cols = ['Date', 'Transaction Type', 'Amount (Kes)', 'Category', 'Item Description']
+            display_cols = ['date', 'transaction type', 'amount(kes)', 'category', 'payment method']
+            # Add appropriate description column
+            if 'transaction type' in recent_df.columns:
+                display_cols.append('item description (money in)' if
+                                    recent_df['transaction type'].str.contains('debit').any() else
+                                    'item description (money out)')
+
             display_cols = [col for col in display_cols if col in recent_df.columns]
 
             st.dataframe(
                 recent_df[display_cols].rename(columns={
-                    'Amount (Kes)': 'Amount',
-                    'Item Description': 'Description'
+                    'amount(kes)': 'Amount',
+                    'item description (money in)': 'Description',
+                    'item description (money out)': 'Description'
                 })
             )
         except Exception as e:
