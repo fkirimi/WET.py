@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import plotly.express as px
+import plotly.graph_objects as go
 
 from datetime import datetime
 
@@ -225,7 +226,7 @@ def load_income_categories():
                 categories_data = json.load(file)
                 return categories_data.get("income_categories", [])
         else:
-            # Return default categories if file doesn't exist
+
             return [
                 "Bonus", "Debtors", "Dividends", "Honorarium", "Loan",
                 "Reimbursement", "Salary", "Savings", "Scholarship Fund",
@@ -448,7 +449,7 @@ if st.session_state.page == "Home":
         subcategory_value = ""
 
         if transaction_type == "Money in (debit)":
-            category_value = st.selectbox("Category", income_categories)
+            category_value = st.selectbox("Category", load_income_categories())
             subcategory_value = st.text_input("Sub Category", "None")
             item_description = st.text_input("Item Description (Money In)", "")
         else:
@@ -857,6 +858,7 @@ elif st.session_state.page == "Honey Pot":
         # Set default values to prevent further errors
         total_inflow, total_outflow, transaction_costs, total_saved, net_worth = 0.0, 0.0, 0.0, 0.0, opening_balance
 
+    st.markdown("---")
     # 7. Cashflow chart with safe column handling
     st.subheader("Monthly Cashflow Overview")
     if not df.empty and 'date' in df.columns:
@@ -869,47 +871,49 @@ elif st.session_state.page == "Honey Pot":
             chart_df = chart_df.dropna(subset=['date'])
             chart_df['Month'] = chart_df['date'].dt.strftime('%Y-%m')
 
-            # Group by month and transaction type
-            monthly_data = chart_df.groupby(['Month', 'transaction type'])['amount(kes)'].sum().reset_index()
+            # Create two columns for the pie charts
+            col1, col2 = st.columns(2)
 
-            # Pivot the data
-            cashflow_data = monthly_data.pivot(
-                index='Month',
-                columns='transaction type',
-                values='amount(kes)'
-            ).reset_index().fillna(0)
+            with col1:
+                # Income pie chart
+                income_data = chart_df[chart_df['transaction type'] == 'debit']
+                if not income_data.empty and 'category' in income_data.columns:
+                    income_by_category = income_data.groupby('category')['amount(kes)'].sum().reset_index()
 
-            # Ensure required columns exist
-            for col_type in ['debit', 'credit']:
-                if col_type not in cashflow_data.columns:
-                    cashflow_data[col_type] = 0
+                    fig_income = px.pie(
+                        income_by_category,
+                        values='amount(kes)',
+                        names='category',
+                        title='Income by Category',
+                        color_discrete_sequence=px.colors.sequential.Greens
+                    )
+                    st.plotly_chart(fig_income, use_container_width=True)
+                else:
+                    st.info("No income data available for pie chart")
 
-            # Rename columns
-            cashflow_data.rename(columns={
-                'debit': 'Income',
-                'credit': 'Expense'
-            }, inplace=True)
+            with col2:
+                # Expense pie chart
+                expense_data = chart_df[chart_df['transaction type'] == 'credit']
+                if not expense_data.empty and 'category' in expense_data.columns:
+                    expense_by_category = expense_data.groupby('category')['amount(kes)'].sum().reset_index()
 
-            # Calculate net cashflow
-            cashflow_data['Net'] = cashflow_data['Income'] - cashflow_data['Expense']
+                    fig_expense = px.pie(
+                        expense_by_category,
+                        values='amount(kes)',
+                        names='category',
+                        title='Expenses by Category',
+                        color_discrete_sequence=px.colors.sequential.Reds
+                    )
+                    st.plotly_chart(fig_expense, use_container_width=True)
+                else:
+                    st.info("No expense data available for pie chart")
 
-            # Sort by month
-            cashflow_data = cashflow_data.sort_values('Month')
-
-            # Create chart
-            fig = px.bar(
-                cashflow_data,
-                x='Month',
-                y=['Income', 'Expense'],
-                title='Monthly Income vs Expenses',
-                barmode='group'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Add net cashflow line
-            fig.add_trace(px.line(cashflow_data, x='Month', y='Net',
-                                  color_discrete_sequence=['black']).data[0])
-            fig.update_layout(showlegend=True)
+            # Optional: Show monthly summary table
+            with st.expander("View Monthly Summary"):
+                monthly_summary = chart_df.groupby(['Month', 'transaction type'])['amount(kes)'].sum().unstack(
+                    fill_value=0)
+                monthly_summary['Net'] = monthly_summary.get('debit', 0) - monthly_summary.get('credit', 0)
+                st.dataframe(monthly_summary)
 
         except Exception as e:
             st.error(f"Error processing cashflow data: {e}")
@@ -917,7 +921,115 @@ elif st.session_state.page == "Honey Pot":
 
             st.write(traceback.format_exc())
     else:
-        st.warning("No transaction data available for chart")
+        st.warning("No transaction data available for charts")
+
+    if not df.empty and 'date' in df.columns:
+        try:
+            # Create a copy to avoid SettingWithCopyWarning
+            chart_df = df.copy()
+
+            # Convert date to datetime and drop NaT values
+            chart_df['date'] = pd.to_datetime(chart_df['date'], errors='coerce')
+            chart_df = chart_df.dropna(subset=['date'])
+
+            # Extract month name
+            chart_df['Month'] = chart_df['date'].dt.strftime('%b')
+            month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+            # Create pivot table first (before converting to categorical)
+            if 'transaction type' in chart_df.columns and 'amount(kes)' in chart_df.columns:
+                # Map your standardized transaction types to the expected values
+                type_mapping = {
+                    'debit': 'Money in (debit)',
+                    'credit': 'Money out (credit)'
+                }
+                chart_df['transaction type display'] = chart_df['transaction type'].map(type_mapping)
+
+                cashflow_data = chart_df.pivot_table(
+                    index='Month',
+                    columns='transaction type display',
+                    values='amount(kes)',
+                    aggfunc='sum',
+                    fill_value=0
+                ).reset_index()
+
+                # Ensure required columns exist
+                for col_type in ['Money in (debit)', 'Money out (credit)']:
+                    if col_type not in cashflow_data.columns:
+                        cashflow_data[col_type] = 0.0  # Use float instead of int
+
+                # Rename columns
+                cashflow_data.rename(columns={
+                    'Money in (debit)': 'Income',
+                    'Money out (credit)': 'Expense'
+                }, inplace=True)
+
+                # Create all_months DataFrame with regular strings (not categorical)
+                all_months = pd.DataFrame({'Month': month_order})
+
+                # Merge with all_months
+                cashflow_data = all_months.merge(cashflow_data, on='Month', how='left').fillna(0)
+
+                # Now convert Month to categorical for proper ordering
+                cashflow_data['Month'] = pd.Categorical(
+                    cashflow_data['Month'],
+                    categories=month_order,
+                    ordered=True
+                )
+
+                # Sort by month to ensure correct order
+                cashflow_data = cashflow_data.sort_values('Month')
+
+                # Calculate net cash flow
+                cashflow_data['Net'] = cashflow_data['Income'] - cashflow_data['Expense']
+
+                # Create plot
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=cashflow_data['Month'],
+                    y=cashflow_data['Income'],
+                    name='Income',
+                    marker_color='green'
+                ))
+                fig.add_trace(go.Bar(
+                    x=cashflow_data['Month'],
+                    y=cashflow_data['Expense'],
+                    name='Expense',
+                    marker_color='red'
+                ))
+                fig.add_trace(go.Scatter(
+                    x=cashflow_data['Month'],
+                    y=cashflow_data['Net'],
+                    mode='lines+markers',
+                    name='Net',
+                    line=dict(color='blue')
+                ))
+
+                fig.update_layout(
+                    barmode='group',
+                    title="Monthly Cashflow",
+                    xaxis_title="Month",
+                    yaxis_title="Amount (Kes)",
+                    legend_title="Type"
+                )
+
+                # Display the plot
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Optional: Display the data table for verification
+                with st.expander("View Cashflow Data"):
+                    st.dataframe(cashflow_data)
+            else:
+                st.error("Required columns ('transaction type', 'amount(kes)') not found in data")
+
+        except Exception as e:
+            st.error(f"Error processing cashflow data: {e}")
+            import traceback
+
+            st.write(traceback.format_exc())
+    else:
+        st.warning("No valid transaction data available for chart")
 
     # 8. Recent transactions with safe column handling
     st.subheader("Recent Transactions")
